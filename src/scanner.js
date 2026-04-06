@@ -19,7 +19,6 @@ const SEVERITY = { critical: "CRITICAL", high: "HIGH", medium: "MEDIUM", low: "L
  * @param {string} url
  * @param {Object} [options]
  * @param {string[]} [options.origins] - Allowed origins to test against
- * @param {boolean} [options.verbose]
  * @returns {Promise<{url: string, findings: Finding[], headers: Record<string, string>, score: number}>}
  */
 export async function scan(url, options = {}) {

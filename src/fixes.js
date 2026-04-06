@@ -106,14 +106,13 @@ export default function handler(req, res) {
 
   if (allowedOrigins.includes(origin)) {
     res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Access-Control-Allow-Credentials", "true");
     res.setHeader("Vary", "Origin");
   }
 
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  res.setHeader("Access-Control-Allow-Credentials", "true");
-
   if (req.method === "OPTIONS") {
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
     res.status(204).end();
     return;
   }
@@ -730,6 +729,8 @@ ${originList}
 function goFix(origins) {
   const originMap = origins.map(o => `\t"${o}": true,`).join("\n");
   return `package main
+
+import "net/http"
 
 // corsMiddleware wraps an http.Handler with CORS logic.
 func corsMiddleware(next http.Handler) http.Handler {

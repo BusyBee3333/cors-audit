@@ -54,7 +54,7 @@ export function printScanStart(url) {
 }
 
 export function printResults(result) {
-  const { url, findings, score } = result;
+  const { findings, score } = result;
 
   // Score
   const scoreColor = score >= 80 ? "green" : score >= 50 ? "yellow" : "red";
