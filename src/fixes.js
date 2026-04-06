@@ -10,11 +10,18 @@ const PLATFORMS = {
   nextjs: "Next.js (next.config.js)",
   nginx: "Nginx",
   apache: "Apache (.htaccess / httpd.conf)",
+  caddy: "Caddy (Caddyfile)",
   cloudflare: "Cloudflare Workers",
   fastify: "Fastify",
-  netlify: "Netlify (_headers / netlify.toml)",
+  hono: "Hono (edge / serverless)",
+  netlify: "Netlify (Edge Functions)",
+  firebase: "Firebase (firebase.json + Cloud Functions)",
+  aws: "AWS (API Gateway / Lambda)",
+  supabase: "Supabase (Edge Functions / PostgREST)",
+  deno: "Deno / Deno Deploy",
   flask: "Flask (flask-cors)",
   django: "Django (django-cors-headers)",
+  laravel: "Laravel (PHP)",
   rails: "Rails (rack-cors)",
   spring: "Spring Boot (Java / Kotlin)",
   go: "Go (net/http)",
@@ -39,11 +46,18 @@ export function generateFixes(origins, platform = "all") {
     nextjs: () => nextjsFix(normalized),
     nginx: () => nginxFix(normalized),
     apache: () => apacheFix(normalized),
+    caddy: () => caddyFix(normalized),
     cloudflare: () => cloudflareFix(normalized),
     fastify: () => fastifyFix(normalized),
+    hono: () => honoFix(normalized),
     netlify: () => netlifyFix(normalized),
+    firebase: () => firebaseFix(normalized),
+    aws: () => awsFix(normalized),
+    supabase: () => supabaseFix(normalized),
+    deno: () => denoFix(normalized),
     flask: () => flaskFix(normalized),
     django: () => djangoFix(normalized),
+    laravel: () => laravelFix(normalized),
     rails: () => railsFix(normalized),
     spring: () => springFix(normalized),
     go: () => goFix(normalized),
@@ -383,6 +397,281 @@ ${originList}
 #
 # GOOD: ALLOWED_ORIGINS.includes(origin)
 #       → exact match only`;
+}
+
+function caddyFix(origins) {
+  const matchers = origins.map(o => `        header Origin ${o}`).join("\n");
+  return `# Caddyfile
+your-domain.com {
+    @cors {
+${matchers}
+    }
+
+    header @cors {
+        Access-Control-Allow-Origin  {header.Origin}
+        Vary                         Origin
+        Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+        Access-Control-Allow-Headers "Content-Type, Authorization"
+        Access-Control-Allow-Credentials "true"
+    }
+
+    @preflight method OPTIONS
+    respond @preflight 204
+
+    # ... your site config
+    reverse_proxy localhost:3000
+}`;
+}
+
+function firebaseFix(origins) {
+  return `// ─── Option 1: firebase.json (static hosting headers) ───
+// Only allows a single origin — use Cloud Functions for multiple.
+{
+  "hosting": {
+    "headers": [
+      {
+        "source": "/api/**",
+        "headers": [
+          { "key": "Access-Control-Allow-Origin", "value": "${origins[0]}" },
+          { "key": "Vary", "value": "Origin" },
+          { "key": "Access-Control-Allow-Methods", "value": "GET, POST, PUT, DELETE, OPTIONS" },
+          { "key": "Access-Control-Allow-Headers", "value": "Content-Type, Authorization" },
+          { "key": "Access-Control-Allow-Credentials", "value": "true" }
+        ]
+      }
+    ]
+  }
+}
+
+// ─── Option 2: Cloud Functions (dynamic, multiple origins) ───
+// functions/index.js
+const functions = require("firebase-functions");
+
+const allowedOrigins = ${JSON.stringify(origins)};
+
+exports.api = functions.https.onRequest((req, res) => {
+  const origin = req.headers.origin;
+
+  if (allowedOrigins.includes(origin)) {
+    res.set("Access-Control-Allow-Origin", origin);
+    res.set("Vary", "Origin");
+    res.set("Access-Control-Allow-Credentials", "true");
+  }
+
+  // Handle preflight
+  if (req.method === "OPTIONS") {
+    res.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    res.set("Access-Control-Max-Age", "86400");
+    res.status(204).send("");
+    return;
+  }
+
+  // ... your handler
+});`;
+}
+
+function awsFix(origins) {
+  return `// ─── Option 1: API Gateway (Console / CloudFormation) ───
+// In API Gateway > Resource > Enable CORS, replace * with specific origins.
+// CloudFormation / SAM template:
+//
+// Resources:
+//   MyApi:
+//     Type: AWS::Serverless::Api
+//     Properties:
+//       Cors:
+//         AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+//         AllowHeaders: "'Content-Type,Authorization'"
+//         AllowOrigin: "'${origins[0]}'"
+//         AllowCredentials: true
+
+// ─── Option 2: Lambda (handle CORS in code) ───
+// Works with API Gateway, Lambda Function URLs, or ALB.
+
+const allowedOrigins = new Set(${JSON.stringify(origins)});
+
+export const handler = async (event) => {
+  const origin = event.headers?.origin || event.headers?.Origin;
+
+  const corsHeaders = {
+    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Vary": "Origin",
+  };
+
+  if (origin && allowedOrigins.has(origin)) {
+    corsHeaders["Access-Control-Allow-Origin"] = origin;
+    corsHeaders["Access-Control-Allow-Credentials"] = "true";
+  }
+
+  // Handle preflight
+  if (event.requestContext?.http?.method === "OPTIONS" || event.httpMethod === "OPTIONS") {
+    return { statusCode: 204, headers: corsHeaders, body: "" };
+  }
+
+  return {
+    statusCode: 200,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    body: JSON.stringify({ message: "Hello" }),
+  };
+};
+
+// ─── Option 3: S3 Bucket CORS (for static assets) ───
+// aws s3api put-bucket-cors --bucket YOUR_BUCKET --cors-configuration:
+${JSON.stringify({
+  CORSRules: [{
+    AllowedOrigins: origins,
+    AllowedMethods: ["GET", "HEAD"],
+    AllowedHeaders: ["*"],
+    MaxAgeSeconds: 86400,
+  }]
+}, null, 2)}`;
+}
+
+function supabaseFix(origins) {
+  return `// ─── Supabase Edge Functions ───
+// supabase/functions/my-function/index.ts
+
+const allowedOrigins = new Set(${JSON.stringify(origins)});
+
+function corsHeaders(origin: string | null) {
+  const headers: Record<string, string> = {
+    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Vary": "Origin",
+  };
+
+  if (origin && allowedOrigins.has(origin)) {
+    headers["Access-Control-Allow-Origin"] = origin;
+    headers["Access-Control-Allow-Credentials"] = "true";
+  }
+
+  return headers;
+}
+
+Deno.serve(async (req) => {
+  const origin = req.headers.get("origin");
+
+  // Handle preflight
+  if (req.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: corsHeaders(origin) });
+  }
+
+  // ... your logic
+  return new Response(JSON.stringify({ ok: true }), {
+    headers: { ...corsHeaders(origin), "Content-Type": "application/json" },
+  });
+});
+
+// ─── PostgREST (Database API) ───
+// PostgREST CORS is controlled at the Supabase dashboard level.
+// Go to: Settings > API > CORS Allowed Origins
+// Replace * with:
+${origins.map(o => `//   ${o}`).join("\n")}
+//
+// IMPORTANT: Also enable Row Level Security (RLS) on all tables.
+// CORS alone does NOT protect your data — RLS does.`;
+}
+
+function honoFix(origins) {
+  return `import { Hono } from "hono";
+import { cors } from "hono/cors";
+
+const app = new Hono();
+
+app.use("/api/*", cors({
+  origin: ${JSON.stringify(origins)},
+  allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowHeaders: ["Content-Type", "Authorization"],
+  credentials: true,
+  maxAge: 86400,
+}));
+
+// ... your routes
+export default app;`;
+}
+
+function denoFix(origins) {
+  return `// Deno / Deno Deploy — middleware pattern
+const allowedOrigins = new Set(${JSON.stringify(origins)});
+
+function withCors(handler: (req: Request) => Response | Promise<Response>) {
+  return async (req: Request): Promise<Response> => {
+    const origin = req.headers.get("origin");
+
+    // Handle preflight
+    if (req.method === "OPTIONS") {
+      return new Response(null, {
+        status: 204,
+        headers: corsHeaders(origin),
+      });
+    }
+
+    const response = await handler(req);
+    const newHeaders = new Headers(response.headers);
+    for (const [k, v] of Object.entries(corsHeaders(origin))) {
+      newHeaders.set(k, v);
+    }
+
+    return new Response(response.body, {
+      status: response.status,
+      headers: newHeaders,
+    });
+  };
+}
+
+function corsHeaders(origin: string | null): Record<string, string> {
+  const headers: Record<string, string> = {
+    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Vary": "Origin",
+  };
+
+  if (origin && allowedOrigins.has(origin)) {
+    headers["Access-Control-Allow-Origin"] = origin;
+    headers["Access-Control-Allow-Credentials"] = "true";
+  }
+
+  return headers;
+}
+
+// Usage:
+Deno.serve(withCors((req) => {
+  return new Response("Hello");
+}));`;
+}
+
+function laravelFix(origins) {
+  const phpArray = origins.map(o => `        '${o}',`).join("\n");
+  return `// config/cors.php
+// Laravel includes CORS support via fruitcake/laravel-cors (or built-in since v9)
+
+return [
+    'paths' => ['api/*'],
+
+    'allowed_methods' => ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+
+    'allowed_origins' => [
+${phpArray}
+    ],
+
+    'allowed_origins_patterns' => [],
+
+    'allowed_headers' => ['Content-Type', 'Authorization', 'X-Requested-With'],
+
+    'exposed_headers' => [],
+
+    'max_age' => 86400,
+
+    'supports_credentials' => true,
+];
+
+// Make sure the CORS middleware is registered in app/Http/Kernel.php:
+// protected $middleware = [
+//     \\Illuminate\\Http\\Middleware\\HandleCors::class,
+//     ...
+// ];`;
 }
 
 function apacheFix(origins) {

@@ -51,19 +51,35 @@ Don't see your stack? Use `--fix generic` for language-agnostic pseudocode that 
 | Platform | Flag |
 |----------|------|
 | **Any server** | `--fix generic` |
+| **Hosting** | |
 | Vercel | `--fix vercel` |
-| Express | `--fix express` |
-| Next.js | `--fix nextjs` |
+| Netlify | `--fix netlify` |
+| Firebase | `--fix firebase` |
+| AWS (API Gateway / Lambda / S3) | `--fix aws` |
+| Cloudflare Workers | `--fix cloudflare` |
+| Supabase | `--fix supabase` |
+| Deno Deploy | `--fix deno` |
+| **Web Servers** | |
 | Nginx | `--fix nginx` |
 | Apache | `--fix apache` |
-| Cloudflare Workers | `--fix cloudflare` |
+| Caddy | `--fix caddy` |
+| **Node.js** | |
+| Express | `--fix express` |
+| Next.js | `--fix nextjs` |
 | Fastify | `--fix fastify` |
-| Netlify | `--fix netlify` |
+| Hono | `--fix hono` |
+| **Python** | |
 | Flask | `--fix flask` |
 | Django | `--fix django` |
+| **PHP** | |
+| Laravel | `--fix laravel` |
+| **Ruby** | |
 | Rails | `--fix rails` |
+| **Java / Kotlin** | |
 | Spring Boot | `--fix spring` |
+| **Go** | |
 | Go (net/http) | `--fix go` |
+| **C# / .NET** | |
 | ASP.NET Core | `--fix dotnet` |
 
 ## CI/CD Integration
