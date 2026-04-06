@@ -6,9 +6,11 @@
  *  2. Origin reflection (echoes back any Origin we send)
  *  3. Null origin accepted
  *  4. Subdomain matching bypass (e.g. evil-example.com)
- *  5. Credentials with wildcard
+ *  5. Credentials with wildcard (caught in test 1 with elevated severity)
  *  6. Missing Vary: Origin header
  *  7. Pre-flight (OPTIONS) behavior
+ *  8. Legitimate origin validation (when --origins provided)
+ *  9. Missing security headers (X-Frame-Options, CSP, etc.)
  */
 
 const SEVERITY = { critical: "CRITICAL", high: "HIGH", medium: "MEDIUM", low: "LOW", info: "INFO" };
@@ -100,9 +102,7 @@ export async function scan(url, options = {}) {
   }
 
   // ── Test 5: Credentials with wildcard ──
-  if (acao === "*" && baseline.headers["access-control-allow-credentials"] === "true") {
-    // Already captured in Test 1 with elevated severity
-  }
+  // Already captured in Test 1 with elevated severity when both conditions are true.
 
   // ── Test 6: Missing Vary: Origin ──
   if (acao && acao !== "*") {

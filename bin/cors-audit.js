@@ -30,7 +30,9 @@ const args = process.argv.slice(2);
 function getFlag(name) {
   const i = args.indexOf(`--${name}`);
   if (i === -1) return null;
-  return args[i + 1] || true;
+  const next = args[i + 1];
+  if (!next || next.startsWith("--")) return true;
+  return next;
 }
 
 function hasFlag(name) {
@@ -71,7 +73,13 @@ async function main() {
   }
 
   // ── Parse args ──
-  const url = args.find(a => !a.startsWith("--"));
+  // Skip values that belong to flags (e.g. --fix vercel, --origins a,b)
+  const flagsWithValues = new Set(["--fix", "--origins"]);
+  const url = args.find((a, i) => {
+    if (a.startsWith("--")) return false;
+    if (i > 0 && flagsWithValues.has(args[i - 1])) return false;
+    return true;
+  });
   if (!url) {
     console.error("  Error: provide a URL to scan");
     process.exit(1);
@@ -82,6 +90,16 @@ async function main() {
   const fixPlatform = getFlag("fix");
   const fixAll = hasFlag("fix-all");
   const jsonOutput = hasFlag("json");
+
+  // ── Validate platform ──
+  if (fixPlatform && typeof fixPlatform === "string") {
+    const platforms = listPlatforms().map(p => p.key);
+    if (!platforms.includes(fixPlatform)) {
+      console.error(`  Error: unknown platform "${fixPlatform}"`);
+      console.error(`  Run with --platforms to see all supported platforms.`);
+      process.exit(1);
+    }
+  }
 
   // ── Scan ──
   if (!jsonOutput) {

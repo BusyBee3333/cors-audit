@@ -127,7 +127,7 @@ cors-audit:
 
 ## How It Works
 
-1. Sends 9 probes to your domain with different `Origin` headers
+1. Sends targeted probes to your domain with different `Origin` headers
 2. Analyzes the `Access-Control-*` response headers for misconfigurations
 3. Scores your CORS setup 0–100
 4. Generates copy-paste fix configs for your platform

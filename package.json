@@ -7,8 +7,10 @@
     "cors-audit": "./bin/cors-audit.js"
   },
   "scripts": {
-    "start": "node bin/cors-audit.js",
-    "test": "node test/run.js"
+    "start": "node bin/cors-audit.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   },
   "keywords": ["cors", "security", "audit", "pentest", "headers"],
   "author": "The Burton Method",

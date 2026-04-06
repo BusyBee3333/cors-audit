@@ -223,7 +223,12 @@ export default {
       });
     }
 
-    const response = await fetch(request);
+    // Pass the request to your origin or handle it
+    const response = await fetch(request.url, {
+      method: request.method,
+      headers: request.headers,
+      body: request.method !== "GET" && request.method !== "HEAD" ? request.body : undefined,
+    });
     const newResponse = new Response(response.body, response);
 
     for (const [key, value] of Object.entries(corsHeaders(origin))) {
@@ -676,7 +681,7 @@ ${phpArray}
 
 function apacheFix(origins) {
   const conditions = origins.map(o =>
-    `    SetEnvIf Origin "^${o.replace(/\./g, "\\\\.")}$" CORS_ORIGIN=$0`
+    `    SetEnvIf Origin "^${o.replace(/\./g, "\\.")}$" CORS_ORIGIN=$0`
   ).join("\n");
   return `# .htaccess or httpd.conf
 <IfModule mod_headers.c>
