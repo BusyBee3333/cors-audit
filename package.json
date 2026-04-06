@@ -1,0 +1,16 @@
+{
+  "name": "cors-audit",
+  "version": "1.0.0",
+  "description": "Scan any domain for CORS misconfigurations and get platform-specific fix configs",
+  "type": "module",
+  "bin": {
+    "cors-audit": "./bin/cors-audit.js"
+  },
+  "scripts": {
+    "start": "node bin/cors-audit.js",
+    "test": "node test/run.js"
+  },
+  "keywords": ["cors", "security", "audit", "pentest", "headers"],
+  "author": "The Burton Method",
+  "license": "MIT"
+}
