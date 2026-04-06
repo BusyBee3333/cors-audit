@@ -4,16 +4,21 @@
  */
 
 const PLATFORMS = {
+  generic: "Generic (any server / language-agnostic)",
   vercel: "Vercel (vercel.json)",
   express: "Express (cors middleware)",
   nextjs: "Next.js (next.config.js)",
   nginx: "Nginx",
+  apache: "Apache (.htaccess / httpd.conf)",
   cloudflare: "Cloudflare Workers",
   fastify: "Fastify",
   netlify: "Netlify (_headers / netlify.toml)",
   flask: "Flask (flask-cors)",
   django: "Django (django-cors-headers)",
   rails: "Rails (rack-cors)",
+  spring: "Spring Boot (Java / Kotlin)",
+  go: "Go (net/http)",
+  dotnet: "ASP.NET Core",
 };
 
 /**
@@ -28,16 +33,21 @@ export function generateFixes(origins, platform = "all") {
   });
 
   const generators = {
+    generic: () => genericFix(normalized),
     vercel: () => vercelFix(normalized),
     express: () => expressFix(normalized),
     nextjs: () => nextjsFix(normalized),
     nginx: () => nginxFix(normalized),
+    apache: () => apacheFix(normalized),
     cloudflare: () => cloudflareFix(normalized),
     fastify: () => fastifyFix(normalized),
     netlify: () => netlifyFix(normalized),
     flask: () => flaskFix(normalized),
     django: () => djangoFix(normalized),
     rails: () => railsFix(normalized),
+    spring: () => springFix(normalized),
+    go: () => goFix(normalized),
+    dotnet: () => dotnetFix(normalized),
   };
 
   if (platform !== "all" && generators[platform]) {
@@ -309,4 +319,176 @@ ${rbList}
       credentials: true
   end
 end`;
+}
+
+function genericFix(origins) {
+  const originList = origins.map(o => `  "${o}"`).join(",\n");
+  return `# ─── CORS Fix: Language-Agnostic Guide ───
+#
+# The logic below works in ANY language or server. Implement it
+# wherever your server sets response headers.
+#
+# ALLOWED_ORIGINS = [
+${originList}
+# ]
+#
+# ─── Pseudocode ───
+#
+# on_request(request, response):
+#
+#   origin = request.headers["Origin"]
+#
+#   # 1. Check if the origin is in your allow-list
+#   if origin IN ALLOWED_ORIGINS:
+#       response.headers["Access-Control-Allow-Origin"] = origin
+#       response.headers["Vary"] = "Origin"
+#       response.headers["Access-Control-Allow-Credentials"] = "true"
+#
+#   # 2. Handle preflight (OPTIONS) requests
+#   if request.method == "OPTIONS":
+#       response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+#       response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+#       response.headers["Access-Control-Max-Age"] = "86400"
+#       return response(status=204, body="")
+#
+#   # 3. Continue to your normal handler
+#   ...
+#
+# ─── Key Rules ───
+#
+# - NEVER use Access-Control-Allow-Origin: *
+#   Always check against an explicit list.
+#
+# - ALWAYS include Vary: Origin when the ACAO value is dynamic.
+#   Without it, caches (CDNs, proxies) can serve the wrong origin
+#   to the wrong user.
+#
+# - Return 204 (No Content) for OPTIONS preflight requests.
+#   Browsers send these before non-simple requests (PUT, DELETE,
+#   custom headers like Authorization).
+#
+# - Access-Control-Max-Age caches preflight results in the browser
+#   so it doesn't re-send OPTIONS on every request. 86400 = 24 hrs.
+#
+# - If you don't need cookies/auth across origins, omit
+#   Access-Control-Allow-Credentials entirely.
+#
+# ─── Common Mistakes ───
+#
+# BAD:  endsWith(origin, "example.com")
+#       → allows evil-example.com
+#
+# BAD:  contains(origin, "example")
+#       → allows example.evil.com
+#
+# GOOD: ALLOWED_ORIGINS.includes(origin)
+#       → exact match only`;
+}
+
+function apacheFix(origins) {
+  const conditions = origins.map(o =>
+    `    SetEnvIf Origin "^${o.replace(/\./g, "\\\\.")}$" CORS_ORIGIN=$0`
+  ).join("\n");
+  return `# .htaccess or httpd.conf
+<IfModule mod_headers.c>
+    # Match allowed origins exactly
+${conditions}
+
+    Header set Access-Control-Allow-Origin  %{CORS_ORIGIN}e env=CORS_ORIGIN
+    Header set Vary                         "Origin"
+    Header set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+    Header set Access-Control-Allow-Headers "Content-Type, Authorization"
+    Header set Access-Control-Allow-Credentials "true"
+
+    # Handle preflight
+    RewriteEngine On
+    RewriteCond %{REQUEST_METHOD} OPTIONS
+    RewriteRule ^(.*)$ $1 [R=204,L]
+</IfModule>`;
+}
+
+function springFix(origins) {
+  const originList = origins.map(o => `            "${o}"`).join(",\n");
+  return `// Java — WebMvcConfigurer
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.servlet.config.annotation.*;
+
+@Configuration
+public class CorsConfig implements WebMvcConfigurer {
+
+    @Override
+    public void addCorsMappings(CorsRegistry registry) {
+        registry.addMapping("/api/**")
+            .allowedOrigins(
+${originList}
+            )
+            .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+            .allowedHeaders("Content-Type", "Authorization")
+            .allowCredentials(true)
+            .maxAge(86400);
+    }
+}
+
+// Or per-controller:
+// @CrossOrigin(origins = {${origins.map(o => `"${o}"`).join(", ")}})`;
+}
+
+function goFix(origins) {
+  const originMap = origins.map(o => `\t"${o}": true,`).join("\n");
+  return `package main
+
+// corsMiddleware wraps an http.Handler with CORS logic.
+func corsMiddleware(next http.Handler) http.Handler {
+\tallowedOrigins := map[string]bool{
+${originMap}
+\t}
+
+\treturn http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+\t\torigin := r.Header.Get("Origin")
+
+\t\tif allowedOrigins[origin] {
+\t\t\tw.Header().Set("Access-Control-Allow-Origin", origin)
+\t\t\tw.Header().Set("Vary", "Origin")
+\t\t\tw.Header().Set("Access-Control-Allow-Credentials", "true")
+\t\t}
+
+\t\tif r.Method == http.MethodOptions {
+\t\t\tw.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+\t\t\tw.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+\t\t\tw.Header().Set("Access-Control-Max-Age", "86400")
+\t\t\tw.WriteHeader(http.StatusNoContent)
+\t\t\treturn
+\t\t}
+
+\t\tnext.ServeHTTP(w, r)
+\t})
+}
+
+// Usage:
+// http.ListenAndServe(":8080", corsMiddleware(yourRouter))`;
+}
+
+function dotnetFix(origins) {
+  const originList = origins.map(o => `            "${o}"`).join(",\n");
+  return `// Program.cs (ASP.NET Core 6+)
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowSpecificOrigins", policy =>
+    {
+        policy.WithOrigins(
+${originList}
+        )
+        .AllowAnyMethod()
+        .AllowAnyHeader()
+        .AllowCredentials();
+    });
+});
+
+var app = builder.Build();
+
+app.UseCors("AllowSpecificOrigins");
+
+// ... rest of pipeline`;
 }

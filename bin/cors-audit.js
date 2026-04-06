@@ -100,8 +100,8 @@ async function main() {
   } else if (fixAll) {
     fixes = generateFixes(origins.length > 0 ? origins : [`https://${extractDomain(url)}`], "all");
   } else if (result.findings.some(f => ["CRITICAL", "HIGH"].includes(f.severity))) {
-    // Auto-suggest a fix if critical/high issues found
-    fixes = generateFixes(origins.length > 0 ? origins : [`https://${extractDomain(url)}`], "express");
+    // Auto-suggest the generic fix so it works for everyone
+    fixes = generateFixes(origins.length > 0 ? origins : [`https://${extractDomain(url)}`], "generic");
   }
 
   // ── Output ──

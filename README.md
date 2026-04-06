@@ -46,18 +46,25 @@ cors-audit --platforms
 
 ## Supported Platforms
 
+Don't see your stack? Use `--fix generic` for language-agnostic pseudocode that works anywhere.
+
 | Platform | Flag |
 |----------|------|
+| **Any server** | `--fix generic` |
 | Vercel | `--fix vercel` |
 | Express | `--fix express` |
 | Next.js | `--fix nextjs` |
 | Nginx | `--fix nginx` |
+| Apache | `--fix apache` |
 | Cloudflare Workers | `--fix cloudflare` |
 | Fastify | `--fix fastify` |
 | Netlify | `--fix netlify` |
 | Flask | `--fix flask` |
 | Django | `--fix django` |
 | Rails | `--fix rails` |
+| Spring Boot | `--fix spring` |
+| Go (net/http) | `--fix go` |
+| ASP.NET Core | `--fix dotnet` |
 
 ## CI/CD Integration
 
